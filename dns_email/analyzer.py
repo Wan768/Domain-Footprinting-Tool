@@ -2,18 +2,24 @@ import argparse
 import dns.resolver
 import whois
 import requests
+import dns.exception
+import dns.resolver
+
+RECORD_TYPES = ['A', 'AAAA', 'MX', 'NS', 'TXT']
 
 def get_dns_records(domain):
-    print(f"\n[+] Gathering DNS Records for {domain}...")
-    record_types = ['A', 'AAAA', 'MX', 'NS', 'TXT']
-    for rtype in record_types:
+    results = {}
+    for rtype in RECORD_TYPES:
         try:
-            answers = dns.resolver.resolve(domain, rtype)
-            print(f"  -> {rtype} Records:")
-            for rdata in answers:
-                print(f"     {rdata}")
-        except Exception:
-            print(f"  -> {rtype} Records: None found")
+            answers = dns.resolver.resolve(domain, rtype, lifetime=5)
+            results[rtype] = [str(r) for r in answers]
+        except dns.resolver.NoAnswer:
+            results[rtype] = []
+        except dns.resolver.NXDOMAIN:
+            return {"error": f"Domain {domain} does not exist"}
+        except dns.exception.Timeout:
+            results[rtype] = []
+    return results
 
 def get_whois_info(domain):
     print(f"\n[+] Fetching WHOIS Registration Data...")
@@ -47,7 +53,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     print(f"[*] Starting reconnaissance on: {args.domain}")
-    get_dns_records(args.domain)
+    records = get_dns_records(args.domain)
+    print(records)
     get_whois_info(args.domain)
     get_http_headers(args.domain)
     print("\n[+] Footprinting complete.")
