@@ -32,6 +32,18 @@ def finding(title, severity, detail, category):
     return {"title": title, "severity": severity,
             "detail": detail, "category": category}
 
+LABEL_PATTERN = re.compile(r"(?!-)[a-z0-9-]{1,63}(?<!-)")
+
+
+def validate_domain(domain):
+    domain = domain.strip().lower().rstrip(".")
+    if not domain or len(domain) > 253:
+        raise ValueError("Domain is empty or too long")
+    for label in domain.split("."):
+        if not LABEL_PATTERN.fullmatch(label):
+            raise ValueError(f"Invalid domain name: {domain}")
+    return domain
+
 def resolve_with_fallback(name, rtype):
     system_resolver = make_resolver()
     public_resolver = make_resolver(PUBLIC_RESOLVERS)
@@ -72,9 +84,8 @@ def check_spf(records):
     elif spf.endswith("~all"):
         findings.append(finding("SPF softfail policy", "Low",
                                 "SPF ends with ~all, spoofed mail will be marked suspicious but not rejected", "email"))
-    elif spf.endswith("-all"):
-        pass  
-    else:
+    elif not spf.endswith("-all"):
+
         findings.append(finding("SPF has no all mechanism", "Low",
                                 "SPF does not end with an all qualifier, policy may be incomplete", "email"))
 
@@ -121,9 +132,8 @@ def check_dmarc(domain, records):
     elif policy == "quarantine":
         findings.append(finding("DMARC quarantine policy", "Low",
                                 "DMARC policy is p=quarantine, spoofed mail will go to spam but does not get rejected", "email"))
-    elif policy == "reject":
-        pass  
-    else:
+    elif policy != "reject":
+        # reject ialah polisi paling kuat (konfigurasi betul), jadi tiada finding
         findings.append(finding("Invalid DMARC policy", "Medium",
                                 "DMARC record has missing or unknown p tag, so it is not implemented", "email"))
     if "rua" not in tags:
@@ -234,6 +244,7 @@ def get_dns_records(domain):
     return results
 
 def run_analysis(domain, delay=1.0, dry_run=False):
+    domain = validate_domain(domain)
     result = {"domain": domain, "records": {}, "whois": {},
               "findings": [], "summary": {}}
 
@@ -283,5 +294,10 @@ if __name__ == "__main__":
                         help="Show what would be done without sending requests")
     args = parser.parse_args()
 
-    result = run_analysis(args.domain, delay=max(0, args.delay), dry_run=args.dry_run)
+    try:
+        target = validate_domain(args.domain)
+    except ValueError as error:
+        parser.error(str(error))
+
+    result = run_analysis(target, delay=max(0, args.delay), dry_run=args.dry_run)
     print(json.dumps(result, indent=2, default=str))
