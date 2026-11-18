@@ -247,7 +247,7 @@ def run_analysis(domain, delay=1.0, dry_run=False):
     domain = validate_domain(domain)
     result = {"domain": domain, "records": {}, "whois": {},
               "findings": [], "summary": {}}
-
+# test run without executing the offensive command
     if dry_run:
         print(f"[DRY RUN] Would query DNS records for {domain}")
         print(f"[DRY RUN] Would query _dmarc.{domain}")
@@ -265,9 +265,11 @@ def run_analysis(domain, delay=1.0, dry_run=False):
         return result
 
     result["findings"] += check_spf(records)
-
+# delay for non intrusive design; rate-limiting
     time.sleep(delay)
     result["findings"] += check_dmarc(domain, records)
+
+    enumerate_subdomains(domain)
 
     time.sleep(delay)
     result["findings"] += check_http_headers(domain)
@@ -283,6 +285,26 @@ def run_analysis(domain, delay=1.0, dry_run=False):
     result["summary"] = summary
 
     return result
+
+SUBDOMAIN_WORDLIST = ['www', 'mail', 'ftp', 'admin', 'test', 'portal', 'api', 'dev', 'vpn', 'remote']
+
+def enumerate_subdomains(domain):
+    findings = []
+    discovered = []
+    resolver = make_resolver(PUBLIC_RESOLVERS)
+    
+    print(f"\n[+] Enumerating Subdomains for {domain}...")
+    for sub in SUBDOMAIN_WORDLIST:
+        sub_domain = f"{sub}.{domain}"
+        try:
+            answers = resolver.resolver.resolve(sub_domain, 'A') if hasattr(resolver, 'resolver') else resolver.resolve(sub_domain, 'A')
+            ips = [str(r) for r in answers]
+            discovered.append({"subdomain": sub_domain, "ips": ips})
+            print(f"  -> Found: {sub_domain} -> {ips}")
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.exception.Timeout):
+            continue
+            
+    return discovered
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DNS, email security and web header analyzer")
