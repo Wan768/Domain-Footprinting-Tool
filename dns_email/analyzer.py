@@ -1,3 +1,5 @@
+import json
+import time
 import re
 import argparse
 import whois
@@ -234,6 +236,46 @@ def get_dns_records(domain):
             results["_failed"].append(rtype)
     return results
 
+def run_analysis(domain, delay=1.0, dry_run=False):
+    result = {"domain": domain, "records": {}, "whois": {},
+              "findings": [], "summary": {}}
+
+    if dry_run:
+        print(f"[DRY RUN] Would query DNS records for {domain}")
+        print(f"[DRY RUN] Would query _dmarc.{domain}")
+        print(f"[DRY RUN] Would send an HTTP request to {domain}")
+        print(f"[DRY RUN] Would query WHOIS for {domain}")
+        print("[DRY RUN] No requests were sent")
+        return result
+
+    records = get_dns_records(domain)
+    result["records"] = records
+
+    if "error" in records:
+        result["findings"].append(finding("Domain does not exist", "Info",
+                                          records["error"], "dns"))
+        return result
+
+    result["findings"] += check_spf(records)
+
+    time.sleep(delay)
+    result["findings"] += check_dmarc(domain, records)
+
+    time.sleep(delay)
+    result["findings"] += check_http_headers(domain)
+
+    time.sleep(delay)
+    whois_info, whois_findings = check_whois(domain)
+    result["whois"] = whois_info
+    result["findings"] += whois_findings
+
+    summary = {"High": 0, "Medium": 0, "Low": 0, "Info": 0}
+    for item in result["findings"]:
+        summary [item["severity"]] += 1
+    result["summary"] = summary
+
+    return result
+
 def get_whois_info(domain):
     print(f"\n[+] Fetching WHOIS Registration Data...")
     try:
@@ -261,17 +303,14 @@ def get_http_headers(domain):
             continue
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Simple Domain Footprinting Tool")
-    parser.add_argument("domain", help="Target domain name (e.g., example.com)")
+    parser = argparse.ArgumentParser(description="DNS, email security and web header analyzer")
+    parser.add_argument("domain", nargs="?", default="example.com",
+                        help="Target domain (default: example.com)")
+    parser.add_argument("--delay", type=float, default=1.0,
+                        help="Seconds to wait between network steps (default: 1.0)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Show what would be done without sending requests")
     args = parser.parse_args()
-    
-    print(f"[*] Starting reconnaissance on: {args.domain}")
-    records = get_dns_records(args.domain)
-    print(records)
-    print(check_spf(records))
-    print(check_dmarc(args.domain, records))
-    print(check_http_headers(args.domain))
-    whois_info, whois_findings = check_whois(args.domain)
-    print(whois_info)
-    print(whois_findings)
-    print("\n[+] Footprinting complete.")
+
+    result = run_analysis(args.domain, delay=max(0, args.delay), dry_run=args.dry_run)
+    print(json.dumps(result, indent=2, default=str))
