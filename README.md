@@ -1,6 +1,6 @@
 # Domain-Footprinting-Tool
 
-git clone https://github.com/your-username/your-repo-name.git 
+git clone https://github.com/Wan768/Domain-Footprinting-Tool.git 
 
 
 cd Domain-Footprinting-Tool
