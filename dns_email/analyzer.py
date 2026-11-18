@@ -53,12 +53,73 @@ def check_spf(records):
         findings.append(finding("SPF softfail policy", "Low",
                                 "SPF ends with ~all, spoofed mail will be marked suspicious but not rejected", "email"))
     elif spf.endswith("-all"):
-        pass  # strict policy, this is the correct configuration
+        pass  
     else:
         findings.append(finding("SPF has no all mechanism", "Low",
                                 "SPF does not end with an all qualifier, policy may be incomplete", "email"))
 
     return findings
+
+def lookup_txt(name):
+    system_resolver = make_resolver()
+    public_resolver = make_resolver(PUBLIC_RESOLVERS)
+    try:
+        try:
+            answers = system_resolver.resolve(name, 'TXT')
+        except dns.exception.Timeout:
+            answers = public_resolver.resolve(name, 'TXT')
+        return [str(r).strip('"') for r in answers]
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+        return []
+    except dns.exception.Timeout:
+        return None
+
+def check_dmarc(domain, records):
+    findings = []
+
+    if "error" in records:
+        return findings
+
+    txt = lookup_txt(f"_dmarc.{domain}")
+    if txt is None:
+        findings.append(finding("DMARC check skipped", "Info",
+                                "Lookup failed, cannot confirm whether DMARC exists", "email"))
+        return findings
+
+    dmarc_records = [t for t in txt if t.lower().startswith("v=dmarc1")]
+    if not dmarc_records:
+        findings.append(finding("No DMARC record", "High",
+                                "Domain has no DMARC policy, spoofed email is not instructed to be rejected", "email"))
+        return findings
+
+    tags = {}
+    for part in dmarc_records[0].split(";"):
+        if "=" in part:
+            key, value = part.strip().split("=", 1)
+            tags[key.strip().lower()] = value.strip().lower()
+
+    policy = tags.get("p")
+
+    if policy == "none":
+        findings.append(finding("DMARC monitoring only", "Medium",
+                                "DMARC policy is p=none, spoofed mail will be reported but can still delivered", "email"))
+    elif policy == "quarantine":
+        findings.append(finding("DMARC quarantine policy", "Low",
+                                "DMARC policy is p=quarantine, spoofed mail will go to spam but does not get rejected", "email"))
+    elif policy == "reject":
+        pass  
+    else:
+        findings.append(finding("Invalid DMARC policy", "Medium",
+                                "DMARC record has missing or unknown p tag, so it is not implemented", "email"))
+
+    if "rua" not in tags:
+        ...
+
+    if "rua" not in tags:
+        findings.append(finding("No DMARC reporting address", "Low",
+                                "DMARC has no rua tag, domain owner will not receive reports", "email"))
+
+    return findings  
 
 def get_dns_records(domain):
     results = {"_failed": []}
@@ -115,6 +176,7 @@ if __name__ == "__main__":
     records = get_dns_records(args.domain)
     print(records)
     print(check_spf(records))
+    print(check_dmarc(args.domain, records))
     get_whois_info(args.domain)
     get_http_headers(args.domain)
     print("\n[+] Footprinting complete.")
