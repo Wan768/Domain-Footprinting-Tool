@@ -32,6 +32,13 @@ def finding(title, severity, detail, category):
     return {"title": title, "severity": severity,
             "detail": detail, "category": category}
 
+def resolve_with_fallback(name, rtype):
+    system_resolver = make_resolver()
+    public_resolver = make_resolver(PUBLIC_RESOLVERS)
+    try:
+        return system_resolver.resolve(name, rtype)
+    except dns.exception.Timeout:
+        return public_resolver.resolve(name, rtype)
 
 def check_spf(records):
     findings = []
@@ -74,13 +81,8 @@ def check_spf(records):
     return findings
 
 def lookup_txt(name):
-    system_resolver = make_resolver()
-    public_resolver = make_resolver(PUBLIC_RESOLVERS)
     try:
-        try:
-            answers = system_resolver.resolve(name, 'TXT')
-        except dns.exception.Timeout:
-            answers = public_resolver.resolve(name, 'TXT')
+        answers = resolve_with_fallback(name, 'TXT')
         return [str(r).strip('"') for r in answers]
     except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
         return []
@@ -218,14 +220,9 @@ def check_whois(domain):
 
 def get_dns_records(domain):
     results = {"_failed": []}
-    system_resolver = make_resolver()
-    public_resolver = make_resolver(PUBLIC_RESOLVERS)
     for rtype in RECORD_TYPES:
         try:
-            try:
-                answers = system_resolver.resolve(domain, rtype)
-            except dns.exception.Timeout:
-                answers = public_resolver.resolve(domain, rtype)
+            answers = resolve_with_fallback(domain, rtype)
             results[rtype] = [str(r) for r in answers]
         except dns.resolver.NoAnswer:
             results[rtype] = []
@@ -275,32 +272,6 @@ def run_analysis(domain, delay=1.0, dry_run=False):
     result["summary"] = summary
 
     return result
-
-def get_whois_info(domain):
-    print(f"\n[+] Fetching WHOIS Registration Data...")
-    try:
-        w = whois.whois(domain)
-        print(f"  -> Registrar: {w.registrar}")
-        print(f"  -> Creation Date: {w.creation_date}")
-        print(f"  -> Expiration Date: {w.expiration_date}")
-        print(f"  -> Name Servers: {w.name_servers}")
-    except Exception as e:
-        print(f"  -> WHOIS lookup failed: {e}")
-
-def get_http_headers(domain):
-    print(f"\n[+] Inspecting HTTP Headers & Security Controls...")
-    urls = [f"https://{domain}", f"http://{domain}"]
-    for url in urls:
-        try:
-            response = requests.get(url, timeout=5, allow_redirects=True)
-            print(f"  -> Target URL: {url} (Status: {response.status_code})")
-            print("  -> Key Headers:")
-            for header, value in response.headers.items():
-                if header.lower() in ['server', 'x-powered-by', 'strict-transport-security', 'content-security-policy', 'x-frame-options', 'via']:
-                    print(f"     {header}: {value}")
-            break
-        except requests.RequestException:
-            continue
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DNS, email security and web header analyzer")
