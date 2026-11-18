@@ -4,6 +4,7 @@ import whois
 import requests
 import dns.exception
 import dns.resolver
+from datetime import datetime, timezone
 
 RECORD_TYPES = ['A', 'AAAA', 'MX', 'NS', 'TXT']
 
@@ -112,7 +113,7 @@ def check_dmarc(domain, records):
 
     if policy == "none":
         findings.append(finding("DMARC monitoring only", "Medium",
-                                "DMARC policy is p=none, spoofed mail will be reported but can still delivered", "email"))
+                                "DMARC policy is p=none, spoofed mail will be reported but can still be delivered", "email"))
     elif policy == "quarantine":
         findings.append(finding("DMARC quarantine policy", "Low",
                                 "DMARC policy is p=quarantine, spoofed mail will go to spam but does not get rejected", "email"))
@@ -121,10 +122,6 @@ def check_dmarc(domain, records):
     else:
         findings.append(finding("Invalid DMARC policy", "Medium",
                                 "DMARC record has missing or unknown p tag, so it is not implemented", "email"))
-
-    if "rua" not in tags:
-        ...
-
     if "rua" not in tags:
         findings.append(finding("No DMARC reporting address", "Low",
                                 "DMARC has no rua tag, domain owner will not receive reports", "email"))
@@ -162,6 +159,60 @@ def check_http_headers(domain):
                                     f"The {name} header reveals a version: {value}", "web"))
 
     return findings
+
+def to_utc(d):
+    # sesetengah tarikh WHOIS tiada timezone, kita seragamkan
+    if d.tzinfo is None:
+        return d.replace(tzinfo=timezone.utc)
+    return d
+
+
+def pick_date(value, pick):
+    # python-whois kadang return list tarikh, kadang satu tarikh, kadang None
+    if isinstance(value, list):
+        dates = [to_utc(d) for d in value if isinstance(d, datetime)]
+        return pick(dates) if dates else None
+    if isinstance(value, datetime):
+        return to_utc(value)
+    return None
+
+
+def check_whois(domain):
+    findings = []
+    try:
+        w = whois.whois(domain)
+    except Exception as e:
+        reason = str(e).splitlines()[0] if str(e) else "unknown error"
+        findings.append(finding("WHOIS lookup failed", "Info", reason, "whois"))
+        return {}, findings
+
+    created = pick_date(w.creation_date, min)
+    expiry = pick_date(w.expiration_date, min)
+
+    name_servers = w.name_servers or []
+    if isinstance(name_servers, str):
+        name_servers = [name_servers]
+
+    info = {
+        "registrar": w.registrar,
+        "creation_date": str(created),
+        "expiration_date": str(expiry),
+        "name_servers": sorted({n.lower() for n in name_servers}),
+    }
+
+    if expiry is None:
+        findings.append(finding("WHOIS expiry unknown", "Info",
+                                "No expiration date found in WHOIS data", "whois"))
+        return info, findings
+
+    days_left = (expiry - datetime.now(timezone.utc)).days
+    if days_left < 0:
+        findings.append(finding("Domain expired", "High",
+                                f"Domain expired {abs(days_left)} days ago", "whois"))
+    elif days_left < 30:
+        findings.append(finding("Domain expiring soon", "Medium",
+                                f"Domain will expire in {days_left} days", "whois"))
+    return info, findings
 
 def get_dns_records(domain):
     results = {"_failed": []}
@@ -220,6 +271,7 @@ if __name__ == "__main__":
     print(check_spf(records))
     print(check_dmarc(args.domain, records))
     print(check_http_headers(args.domain))
-    get_whois_info(args.domain)
-    get_http_headers(args.domain)
+    whois_info, whois_findings = check_whois(args.domain)
+    print(whois_info)
+    print(whois_findings)
     print("\n[+] Footprinting complete.")
