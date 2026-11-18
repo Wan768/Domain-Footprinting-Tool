@@ -1,3 +1,4 @@
+import re
 import argparse
 import whois
 import requests
@@ -7,6 +8,15 @@ import dns.resolver
 RECORD_TYPES = ['A', 'AAAA', 'MX', 'NS', 'TXT']
 
 PUBLIC_RESOLVERS = ['8.8.8.8', '1.1.1.1']
+
+USER_AGENT = "FootPrinter/1.0 (authorized-scan)"
+
+EXPECTED_HEADERS = {
+    "strict-transport-security": ("Missing HSTS", "Medium"),
+    "content-security-policy": ("Missing CSP", "Medium"),
+    "x-frame-options": ("Missing X-Frame-Options", "Low"),
+    "x-content-type-options": ("Missing X-Content-Type-Options", "Low"),
+}
 
 def make_resolver(nameservers=None):
     resolver = dns.resolver.Resolver()
@@ -121,6 +131,38 @@ def check_dmarc(domain, records):
 
     return findings  
 
+def check_http_headers(domain):
+    findings = []
+    headers = None
+
+    for scheme in ("https", "http"):
+        try:
+            response = requests.get(f"{scheme}://{domain}", timeout=5,
+                                    headers={"User-Agent": USER_AGENT},
+                                    allow_redirects=True)
+            headers = {k.lower(): v for k, v in response.headers.items()}
+            break
+        except requests.RequestException:
+            continue
+
+    if headers is None:
+        findings.append(finding("HTTP check skipped", "Info",
+                                "Could not connect to the web server", "web"))
+        return findings
+
+    for name, (title, severity) in EXPECTED_HEADERS.items():
+        if name not in headers:
+            findings.append(finding(title, severity,
+                                    f"The {name} header is not set", "web"))
+
+    for name in ("server", "x-powered-by"):
+        value = headers.get(name, "")
+        if re.search(r"\d+\.\d+", value):
+            findings.append(finding(f"Version disclosed in {name}", "Low",
+                                    f"The {name} header reveals a version: {value}", "web"))
+
+    return findings
+
 def get_dns_records(domain):
     results = {"_failed": []}
     system_resolver = make_resolver()
@@ -177,6 +219,7 @@ if __name__ == "__main__":
     print(records)
     print(check_spf(records))
     print(check_dmarc(args.domain, records))
+    print(check_http_headers(args.domain))
     get_whois_info(args.domain)
     get_http_headers(args.domain)
     print("\n[+] Footprinting complete.")
