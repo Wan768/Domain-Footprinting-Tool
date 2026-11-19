@@ -26,7 +26,7 @@ def display_disclaimer():
 def save_output(domain, data):
     os.makedirs("Scan_output", exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    filename = os.path.join("output", f"{domain}_footprint_{timestamp}.json")
+    filename = os.path.join("Scan_output", f"{domain}_footprint_{timestamp}.json")
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, default=str)
     print(f"\n[+] Full JSON report saved locally to: {filename}")
