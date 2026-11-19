@@ -31,7 +31,6 @@ def fetch_crtsh(domain, timeout=15):
     return names
 
 def resolves(name):
-    # True = ada A record, False = tiada, None = lookup gagal
     try:
         resolve_with_fallback(name, "A")
         return True
@@ -44,7 +43,6 @@ def resolves(name):
 def has_wildcard(domain):
     label = uuid.uuid4().hex[:12]
     return resolves(f"{label}.{domain}") is True
-    pass
 
 
 def brute_force(domain, wordlist=DEFAULT_WORDLIST, delay=0.5):
