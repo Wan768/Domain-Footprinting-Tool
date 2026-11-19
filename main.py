@@ -10,9 +10,21 @@ from modules.subdomain_enum import enumerate_subdomains
 from modules.utils import finding, validate_domain
 from modules.web_whois import check_http_headers, check_whois
 
+def display_disclaimer():
+    print("=" * 70)
+    print(" [!] LEGAL DISCLAIMER: Authorized Security Testing Only")
+    print(" [!] This tool references the Computer Crimes Act.")
+    print(" [!] Unauthorized scanning or probing without explicit written")
+    print(" [!] permission is illegal. Use only on authorized scopes.")
+    print("=" * 70)
+    confirm = input("[?] Do you have authorization to scan the target? (y/N): ").strip().lower()
+    print("Ctrl + C to activate kill switch")
+    if confirm != 'y':
+        print("[-] Scan Aborted")
+        sys.exit(0)
 
 def save_output(domain, data):
-    os.makedirs("output", exist_ok=True)
+    os.makedirs("Scan_output", exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename = os.path.join("output", f"{domain}_footprint_{timestamp}.json")
     with open(filename, "w", encoding="utf-8") as f:
@@ -120,9 +132,11 @@ if __name__ == "__main__":
         parser.error(str(error))
 
     try:
-
+        display_disclaimer()
         result = run_analysis(target, delay=max(0, args.delay), dry_run=args.dry_run)
         if not args.dry_run:
             print_readable_summary(result)
+            save_output(target, result)
     except KeyboardInterrupt:
+        print("\n[!] Kill switch activated (Ctrl+C). Aborting scan")
         sys.exit(0)
