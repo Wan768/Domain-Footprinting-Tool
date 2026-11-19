@@ -59,9 +59,41 @@ def brute_force(domain, wordlist=DEFAULT_WORDLIST, delay=0.5):
         time.sleep(delay)
     return found, False
 
+def enumerate_subdomains(domain, delay=0.5, dry_run=False, wordlist=DEFAULT_WORDLIST):
+    domain = validate_domain(domain)
+    result = {"domain": domain, "subdomains": [], "findings": []}
+
+    if dry_run:
+        print(f"[DRY RUN] Would query crt.sh for {domain}")
+        print(f"[DRY RUN] Would check wildcard DNS for {domain}")
+        print(f"[DRY RUN] Would try {len(wordlist)} wordlist names under {domain}")
+        print("[DRY RUN] No requests were sent")
+        return result
+
+    passive = fetch_crtsh(domain)
+    if passive is None:
+        result["findings"].append(finding("crt.sh lookup failed", "Info",
+                                          "Could not reach crt.sh, passive results are missing", "subdomain"))
+        passive = set()
+
+    time.sleep(delay)
+    active, wildcard = brute_force(domain, wordlist=wordlist, delay=delay)
+    if wildcard:
+        result["findings"].append(finding("Wildcard DNS detected", "Info",
+                                          "Any subdomain resolves, brute-force results were skipped", "subdomain"))
+
+    for name in sorted(passive | active):
+        if name in passive and name in active:
+                source = "passive and active"
+        elif name in passive:
+                source = "crt.sh"
+        else:
+                source = "bruteforce"
+        result["subdomains"].append({"name": name, "source": source})
+    return result
+
 if __name__ == "__main__":
+    import json
     import sys
-    target = validate_domain(sys.argv[1] if len(sys.argv) > 1 else "example.com")
-    print("crt.sh:", sorted(fetch_crtsh(target) or []))
-    print("wildcard:", has_wildcard(target))
-    print("brute:", brute_force(target, delay=0.2))
+    target = sys.argv[1] if len(sys.argv) > 1 else "example.com"
+    print(json.dumps(enumerate_subdomains(target, delay=0.2, dry_run="--dry-run" in sys.argv), indent=2))
