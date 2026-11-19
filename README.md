@@ -9,4 +9,4 @@ cd Domain-Footprinting-Tool
 pip install -r requirements.txt
 
 
-to run the code: python footprint.py example.com
+to run the code: python main.py example.com
