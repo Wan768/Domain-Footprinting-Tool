@@ -11,7 +11,7 @@ env/
 .env
 
 # Tool output (reports, scan results)
-output/
+Scan_output/
 
 # Build artifacts
 build/
