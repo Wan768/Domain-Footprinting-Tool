@@ -33,6 +33,28 @@ For one target domain, FootPrinter runs six checks in sequence and rates each fi
 | Libraries | `dnspython`, `python-whois`, `requests` |
 | License | MIT |
 
+## Attack Lifecycle Mapping
+
+Footprinter covers the **reconnaissance** stage of an engagement and part of enumeration. 
+Before step 1, the shows the legal disclaimer, asks for authorization and validates the domain name.
+
+```mermaid
+flowchart LR
+    A["1. DNS and Email Recon"] --> B["2. Subdomain Enumeration"]
+    B --> C["3. Web and WHOIS"]
+    C --> D["4. Analysis and Rating"]
+    D --> E["5. Reporting and Exit"]
+```
+| Step | Functions | What happens |
+|---|---|---|
+| 1. DNS and Email Recon (passive) | `get_dns_records()`, `check_spf()`, `check_dmarc()` | Retrieves DNS records and assesses email spoofing protection |
+| 2. Subdomain Enumeration (passive and active) | `fetch_crtsh()`, `brute_force()`, `has_wildcard()` | Finds subdomains from certificate logs and a 20-word list, and skips the list if wildcard DNS would cause false results |
+| 3. Web and WHOIS (active and passive) | `check_http_headers()`, `check_whois()` | Checks security headers and version disclosure, then retrieves registration and expiry data |
+| 4. Analysis and Rating | `finding()`, `run_analysis()` | Rates each finding High, Medium, Low or Info and counts them |
+| 5. Reporting and Exit | `print_readable_summary()`, `save_output()` | Shows the summary in the terminal and saves a JSON report locally. `Ctrl+C` stops the scan at any time. |
+
+**Not covered (by design):** port scanning, credential testing, exploitation, persistence and covering tracks. The tool reports configuration weaknesses only. Any later stage would need separate written authorization.
+
 ## Ethical Considerations
 
 This tool is built with defensive guardrails and safe-by-design principles to minimize risk during security assessments:
