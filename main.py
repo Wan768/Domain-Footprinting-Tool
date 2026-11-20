@@ -18,7 +18,6 @@ def display_disclaimer():
     print(" [!] permission is illegal. Use only on authorized scopes.")
     print("=" * 70)
     confirm = input("[?] Do you have authorization to scan the target? (y/N): ").strip().lower()
-    print("Ctrl + C to activate kill switch")
     if confirm != 'y':
         print("[-] Scan Aborted")
         sys.exit(0)
@@ -52,6 +51,7 @@ def run_analysis(domain, delay=1.0, dry_run=False):
         print("[DRY RUN] No requests were sent")
         return result
 
+    print("Ctrl + C to activate kill switch")
     print(f"\n[*] Gathering DNS records for {domain}...")
     records = get_dns_records(domain)
     result["records"] = records
