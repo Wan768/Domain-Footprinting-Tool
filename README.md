@@ -77,8 +77,6 @@ Dependencies (declared in `requirements.txt`): `dnspython`, `python-whois`, `req
 
 <img width="490" height="183" alt="image" src="https://github.com/user-attachments/assets/23e464e0-b075-441f-be27-16791e81d23a" />
 
-)
-
 ## Usage
 
 Run the tool from the project folder.
@@ -122,9 +120,7 @@ python main.py --help
 
 Press `Ctrl+C` at any time to stop the scan.
 
-![Dry-run example](docs/dry-run.png)
-
-![Scan summary](docs/scan-summary.png)
+<img width="483" height="310" alt="image" src="https://github.com/user-attachments/assets/b8ead3a8-45fa-4808-bf37-85df2f0c82ef" />
 
 ### Output
 
