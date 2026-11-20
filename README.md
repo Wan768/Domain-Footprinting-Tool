@@ -11,6 +11,19 @@
 
 to run the code: `python main.py example.com`
 
+## Description
+
+For one target domain, FootPrinter runs six checks in sequence and rates each findings as High, Medium, Low or Info. The results are shown in the terminal and saved as a JSON report on the local machine.
+
+| Check | What it does |
+| --- | --- |
+| DNS records | Retrieves A, AAAA, MX, NS and TXT records, with a fallback to public resolvers |
+| SPF analysis | Flags a missing SPF record, multiple records and weak qualifiers (`+all`, `?all`, `~all`) |
+| DMARC analysis | Flags a missing DMARC record, `p=none`, `p=quarantine` and a missing `rua` address |
+| Subdomain enumeration | Uses Certificate Transparency logs (crt.sh) and a 20-word wordlist, with wildcard DNS detection |
+| HTTP security headers | Flags missing HSTS, CSP, X-Frame-Options and X-Content-Type-Options, and version disclosure |
+| WHOIS | Retrieves registrar, dates and name servers, and flags expired or soon-to-expire domains |
+
 ## Ethical Considerations
 
 This tool is built with defensive guardrails and safe-by-design principles to minimize risk during security assessments:
