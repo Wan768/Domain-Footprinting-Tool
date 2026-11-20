@@ -75,7 +75,8 @@ pip install -r requirements.txt
 
 Dependencies (declared in `requirements.txt`): `dnspython`, `python-whois`, `requests`.
 
-![Installation](docs/install.png)
+![Installation](<img width="490" height="183" alt="image" src="https://github.com/user-attachments/assets/f74db235-1bce-4a3e-93b5-5637f26002f0" />
+)
 
 ## Usage
 
