@@ -55,6 +55,98 @@ flowchart LR
 
 **Not covered (by design):** port scanning, credential testing, exploitation, persistence and covering tracks. The tool reports configuration weaknesses only. Any later stage would need separate written authorization.
 
+## Installation
+
+**Requirements:** Python 3.9 or newer, and `git`.
+
+```bash
+git clone https://github.com/Wan768/Domain-Footprinting-Tool.git
+cd Domain-Footprinting-Tool
+pip install -r requirements.txt
+```
+
+Optional: use a virtual environment so the libraries stay separate from your system Python.
+
+```bash
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Dependencies (declared in `requirements.txt`): `dnspython`, `python-whois`, `requests`.
+
+![Installation](docs/install.png)
+
+## Usage
+
+Run the tool from the project folder.
+
+```bash
+python main.py [domain] [--delay SECONDS] [--dry-run]
+```
+
+| Option | Purpose | Default |
+|---|---|---|
+| `domain` | Target domain | `example.com` |
+| `--delay` | Seconds to wait between network steps and between subdomain guesses | `1.0` |
+| `--dry-run` | Show the planned steps without sending any request | Off |
+| `-h`, `--help` | Show the help text and usage examples | |
+
+### Examples
+
+```bash
+# Scan the safe default target
+python main.py
+
+# Scan a domain you are authorized to test
+python main.py example.com
+
+# Slow the scan down to reduce load on the target
+python main.py example.com --delay 2
+
+# Preview every step without sending any request
+python main.py example.com --dry-run
+
+# Show help
+python main.py --help
+```
+
+### What happens when you run it
+
+1. The tool shows the legal disclaimer and asks: `Do you have authorization to scan the target? (y/N)`. Any answer other than `y` ends the program before any request is sent.
+2. It runs the five steps in the [lifecycle mapping](#attack-lifecycle-mapping).
+3. It prints a summary of the subdomains found, the findings and a severity count.
+4. It saves the full report to `Scan_output/<domain>_footprint_<timestamp>.json`.
+
+Press `Ctrl+C` at any time to stop the scan.
+
+![Dry-run example](docs/dry-run.png)
+
+![Scan summary](docs/scan-summary.png)
+
+### Output
+
+The terminal summary has this layout:
+
+```
+[+] Subdomains Discovered (N):
+  -> www.example.com (crt.sh)
+
+[+] Security Findings:
+  -> [Severity] (CATEGORY) Title: detail
+
+[+] Severity Breakdown: High=0 | Medium=0 | Low=0 | Info=0
+```
+
+| Severity | Meaning |
+|---|---|
+| High | A serious gap, such as no SPF or DMARC record, or an expired domain |
+| Medium | A weak setting, such as a missing HSTS or CSP header, or `p=none` in DMARC |
+| Low | A minor issue, such as a missing X-Frame-Options header or a version number in the `Server` header |
+| Info | A note, such as wildcard DNS detected or a lookup that failed |
+
+The JSON report contains these keys: `domain`, `timestamp`, `records`, `subdomains`, `whois`, `findings` and `summary`.
+
 ## Ethical Considerations
 
 This tool is built with defensive guardrails and safe-by-design principles to minimize risk during security assessments:
