@@ -24,6 +24,15 @@ For one target domain, FootPrinter runs six checks in sequence and rates each fi
 | HTTP security headers | Flags missing HSTS, CSP, X-Frame-Options and X-Content-Type-Options, and version disclosure |
 | WHOIS | Retrieves registrar, dates and name servers, and flags expired or soon-to-expire domains |
 
+## Attack Category
+| Item | Detail |
+|---|---|
+| Category | Offensive OSINT (Category 6) |
+| Lifecycle stage | Reconnaissance, with part of enumeration |
+| Language | Python 3 |
+| Libraries | `dnspython`, `python-whois`, `requests` |
+| License | MIT |
+
 ## Ethical Considerations
 
 This tool is built with defensive guardrails and safe-by-design principles to minimize risk during security assessments:
